@@ -164,5 +164,63 @@ public interface WalletManagerInterface {
      */
 	public byte[] generateCompactSignatureFromHash(String keyId, byte[] hashedSource) throws WalletException;
 
+	// zkp
+	/**
+	 * Add a ZkpKeyElement to the wallet.
+	 *
+	 * @param key The ZkpKeyElement to add.
+	 * @throws WalletException If an error occurs during key addition.
+	 */
+	public void addZkpKey(ZkpKeyElement key) throws WalletException;
+
+	/**
+	 * Remove a ZkpKeyElement by keyId.
+	 *
+	 * @param keyId The ID of the key to remove.
+	 * @throws WalletException If an error occurs during key removal.
+	 */
+	public void removeZkpKey(String keyId) throws WalletException;
+
+	/**
+	 * Get a ZkpKeyElement by keyId.
+	 *
+	 * @param keyId The ID of the key.
+	 * @return The ZkpKeyElement.
+	 * @throws WalletException If an error occurs during key retrieval.
+	 */
+	public ZkpKeyElement getZkpKeyElement(String keyId) throws WalletException;
+
+	/**
+	 * Get a decrypted ZkpKeyElement by keyId.
+	 *
+	 * @param keyId The ID of the key.
+	 * @return The decrypted ZkpKeyElement.
+	 * @throws WalletException If an error occurs during key retrieval or decryption.
+	 */
+	public ZkpKeyElement getDecryptedZkpKeyElement(String keyId) throws WalletException;
+
+	/**
+	 * Check if a ZkpKeyElement with the specified keyId exists in the wallet.
+	 *
+	 * @param keyId The ID of the key.
+	 * @return True if the key exists, false otherwise.
+	 * @throws WalletException If an error occurs during key existence check.
+	 */
+	public boolean isExistZkpKey(String keyId) throws WalletException;
+
+	/**
+	 * Get a list of all ZkpKeyElement keyIds present in the wallet.
+	 *
+	 * @return The list of ZkpKeyElement keyIds.
+	 * @throws WalletException If an error occurs during key ID retrieval.
+	 */
+	public List<String> getZkpKeyIdList() throws WalletException;
+
+	/**
+	 * Remove all ZkpKeyElements from the wallet.
+	 *
+	 * @throws WalletException If an error occurs during key removal.
+	 */
+	public void removeAllZkpKeys() throws WalletException;
 }
 

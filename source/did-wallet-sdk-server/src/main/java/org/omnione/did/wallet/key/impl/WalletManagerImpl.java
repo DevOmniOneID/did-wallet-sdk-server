@@ -745,5 +745,261 @@ public abstract class WalletManagerImpl implements WalletManagerInterface {
 
 	protected abstract byte[] compactSignatureFromHash(String keyId, byte[] hashedSource) throws WalletException;
 
-	
+	// zkp
+	/**
+	 * Remove a ZkpKeyElement by keyId.
+	 *
+	 * @param keyId
+	 * @throws WalletException
+	 */
+	public void removeZkpKey(String keyId) throws WalletException {
+		if (!isConnect())
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_DISCONNECT);
+
+		ZkpKeyElement key = getZkpKeyElement(keyId);
+		if (key == null)
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_KEYID_NOT_EXIST);
+
+		Wallet data = walletFile.getData();
+		if (data == null) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_FILE_LOAD_FAIL);
+		}
+
+		boolean isChanged = false;
+
+		ArrayList<ZkpKeyElement> zkpKeys = data.getZkpKeys();
+		if (zkpKeys != null) {
+			for (ZkpKeyElement k : zkpKeys) {
+				if (k.getKeyId().equals(keyId)) {
+					if (zkpKeys.remove(k)) {
+						isChanged = true;
+						break;
+					}
+				}
+			}
+		}
+
+		if (isChanged == true) {
+			data.setZkpKeys(zkpKeys);
+			walletFile.write(data);
+		}
+	}
+
+	/**
+	 * Add a ZkpKeyElement.
+	 *
+	 * @param key
+	 * @throws WalletException
+	 */
+	public void addZkpKey(ZkpKeyElement key) throws WalletException {
+		if (!isConnect())
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_DISCONNECT);
+
+		if (key == null) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_IWKEY_IS_NULL);
+		}
+
+		if (key.getKeyId() == null || key.getKeyId().isEmpty()) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_KEYID_EMPTY_NAME);
+		}
+
+		if (!key.getKeyId().matches("^[0-9a-zA-Z.]+$"))
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_INVALID_KEYID_NAME);
+
+		if (key.getType() == null || key.getType().isEmpty()) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_INVALID_ALGORITHM_TYPE);
+		}
+
+		// Check if key with same ID already exists
+		if (walletFile.getData() != null) {
+			// Check in ZKP keys
+			if (walletFile.getData().getZkpKeys() != null) {
+				ArrayList<ZkpKeyElement> zkpKeyEles = walletFile.getData().getZkpKeys();
+				for (ZkpKeyElement zkpKeyEle : zkpKeyEles) {
+					if (zkpKeyEle.getKeyId().equals(key.getKeyId())) {
+						throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_KEYID_ALREADY_EXIST);
+					}
+				}
+			}
+		}
+
+		// Encrypt the private key
+		String encodingType = walletFile.getData().getHead().getEncoding().getKeyEncodingType();
+		try {
+			byte[] privateKeyBytes = MultiBaseUtils.decode(key.getPrivateKey());
+			String encryptedPrivateKey = encrypt(privateKeyBytes, encodingType);
+			key.setPrivateKey(encryptedPrivateKey);
+		} catch (CryptoException e) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_INVALID_PRIVATE_KEY, e);
+		}
+
+		Wallet data = walletFile.getData();
+		ArrayList<ZkpKeyElement> zkpKeys = data.getZkpKeys();
+
+		if (zkpKeys == null) {
+			zkpKeys = new ArrayList<ZkpKeyElement>();
+		}
+		zkpKeys.add(key);
+		data.setZkpKeys(zkpKeys);
+
+		walletFile.write(data);
+	}
+
+	/**
+	 * Get a ZkpKeyElement by keyId.
+	 *
+	 * @param keyId
+	 * @return
+	 * @throws WalletException
+	 */
+	public ZkpKeyElement getZkpKeyElement(String keyId) throws WalletException {
+		if (!isConnect())
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_DISCONNECT);
+
+		Wallet data = walletFile.getData();
+		ArrayList<ZkpKeyElement> zkpKeys = data.getZkpKeys();
+		if (zkpKeys == null)
+			return null;
+
+		for (ZkpKeyElement key : zkpKeys) {
+			if (key.getKeyId().equals(keyId)) {
+				return key;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Get decrypted ZkpKeyElement by keyId.
+	 *
+	 * @param keyId
+	 * @return
+	 * @throws WalletException
+	 */
+	public ZkpKeyElement getDecryptedZkpKeyElement(String keyId) throws WalletException {
+		ZkpKeyElement key = getZkpKeyElement(keyId);
+		if (key == null)
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_KEYID_NOT_EXIST);
+
+		// Create a copy of the key
+		ZkpKeyElement decryptedKey = new ZkpKeyElement();
+		decryptedKey.setKeyId(key.getKeyId());
+		decryptedKey.setAlgorithm(key.getAlgorithm());
+		decryptedKey.setType(key.getType());
+
+		// Decrypt the private key
+		try {
+			byte[] decodedKey = MultiBaseUtils.decode(key.getPrivateKey());
+			byte[] decryptedBytes = symDecPrivateKey(decodedKey);
+			String decryptedPrivateKey = MultiBaseUtils.encode(decryptedBytes, MultiBaseType.base58btc);
+			decryptedKey.setPrivateKey(decryptedPrivateKey);
+		} catch (CryptoException e) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_INVALID_PRIVATE_KEY, e);
+		}
+
+		// Copy all additional properties
+		decryptedKey.setAllProperties(key.getAllProperties());
+
+		return decryptedKey;
+	}
+
+	/**
+	 * Check if a ZkpKeyElement with the given keyId exists.
+	 *
+	 * @param keyId
+	 * @return
+	 * @throws WalletException
+	 */
+	public boolean isExistZkpKey(String keyId) throws WalletException {
+		if (!isConnect()) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_DISCONNECT);
+		}
+
+		if (keyId == null || keyId.isEmpty()) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_INVALID_KEYID_NAME);
+		}
+
+		if (getZkpKeyIdList() != null && getZkpKeyIdList().contains(keyId)) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Get a list of all ZkpKeyElement keyIds.
+	 *
+	 * @return
+	 * @throws WalletException
+	 */
+	public List<String> getZkpKeyIdList() throws WalletException {
+		if (!isConnect()) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_DISCONNECT);
+		}
+
+		Wallet data = walletFile.getData();
+		ArrayList<ZkpKeyElement> zkpKeys = data.getZkpKeys();
+		if (zkpKeys == null || zkpKeys.size() == 0) {
+			return null;
+		}
+
+		List<String> keyIds = new ArrayList<String>();
+		for (ZkpKeyElement key : zkpKeys) {
+			keyIds.add(key.getKeyId());
+		}
+
+		return keyIds;
+	}
+
+	/**
+	 * Remove all ZkpKeyElements.
+	 *
+	 * @throws WalletException
+	 */
+	public void removeAllZkpKeys() throws WalletException {
+		if (!isConnect()) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_DISCONNECT);
+		}
+
+		Wallet data = walletFile.getData();
+		if (data == null) {
+			throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_FILE_LOAD_FAIL);
+		}
+
+		ArrayList<ZkpKeyElement> zkpKeys = data.getZkpKeys();
+
+		if (zkpKeys != null && zkpKeys.size() > 0) {
+			data.setZkpKeys(null);
+			walletFile.write(data);
+		}
+	}
+
+	/**
+	 * Helper method to decrypt all ZkpKeyElement private keys.
+	 * Used during password change.
+	 *
+	 * @param zkpKeys
+	 * @return
+	 * @throws WalletException
+	 */
+	private ArrayList<ZkpKeyElement> decryptZkpPrivateKey(ArrayList<ZkpKeyElement> zkpKeys) throws WalletException {
+		for (ZkpKeyElement element : zkpKeys) {
+			String pKeyString = element.getPrivateKey();
+
+			byte[] valueByte = null;
+			valueByte = decrypt(pKeyString);
+			if (valueByte == null) {
+				throw new WalletException(WalletErrorCode.ERR_CODE_CRYPTO_DECRYPT);
+			}
+
+			try {
+				element.setPrivateKey(MultiBaseUtils.encode(valueByte, MultiBaseType.base58btc));
+			} catch (CryptoException e) {
+				throw new WalletException(WalletErrorCode.ERR_CODE_WALLET_INVALID_PRIVATE_KEY, e);
+			}
+		}
+		return zkpKeys;
+	}
+
 }

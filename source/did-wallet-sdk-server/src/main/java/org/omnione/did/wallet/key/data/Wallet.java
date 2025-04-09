@@ -26,6 +26,8 @@ public class Wallet {
 
 	private HeadElement head;
 	private ArrayList<KeyElement> keys;
+	// zkp
+	private ArrayList<ZkpKeyElement> zkpKeys;
 
 	public void setHead(HeadElement headElement) {
 		this.head = headElement;
@@ -59,6 +61,15 @@ public class Wallet {
 
 	}
 
+	// zkp
+	public ArrayList<ZkpKeyElement> getZkpKeys() {
+		return zkpKeys;
+	}
+
+	public void setZkpKeys(ArrayList<ZkpKeyElement> zkpKeys) {
+		this.zkpKeys = zkpKeys;
+	}
+
 	public String toJson() {
 		JsonConverterUtils gson = new JsonConverterUtils();
 		return gson.toJson(this);
@@ -69,6 +80,8 @@ public class Wallet {
 		Wallet data = gson.fromJson(val, Wallet.class);
 		head = data.getHead();
 		keys = data.getKeys();
+		// zkp
+		zkpKeys = data.getZkpKeys();
 
 	}
 
