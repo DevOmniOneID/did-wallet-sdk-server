@@ -21,7 +21,6 @@ import java.util.Map;
 
 public class ZkpKeyElement {
 	private String keyId;
-	private String algorithm;
 	private String type;
 	private String privateKey;
 
@@ -37,14 +36,6 @@ public class ZkpKeyElement {
 
 	public void setKeyId(String keyId) {
 		this.keyId = keyId;
-	}
-
-	public String getAlgorithm() {
-		return algorithm;
-	}
-
-	public void setAlgorithm(String algorithm) {
-		this.algorithm = algorithm;
 	}
 
 	public String getType() {
@@ -103,7 +94,6 @@ public class ZkpKeyElement {
 		Map<String, Object> jsonMap = new HashMap<>();
 
 		jsonMap.put("keyId", keyId);
-		jsonMap.put("algorithm", algorithm);
 		jsonMap.put("type", type);
 		jsonMap.put("privateKey", privateKey);
 
@@ -121,10 +111,6 @@ public class ZkpKeyElement {
 			this.keyId = (String) jsonMap.get("keyId");
 		}
 
-		if (jsonMap.containsKey("algorithm")) {
-			this.algorithm = (String) jsonMap.get("algorithm");
-		}
-
 		if (jsonMap.containsKey("type")) {
 			this.type = (String) jsonMap.get("type");
 		}
@@ -134,7 +120,6 @@ public class ZkpKeyElement {
 		}
 
 		jsonMap.remove("keyId");
-		jsonMap.remove("algorithm");
 		jsonMap.remove("type");
 		jsonMap.remove("privateKey");
 
